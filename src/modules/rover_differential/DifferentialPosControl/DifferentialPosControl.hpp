@@ -51,7 +51,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/rover_rate_setpoint.h>
 #include <uORB/topics/rover_throttle_setpoint.h>
-#include <uORB/topics/rover_velocity_status.h>
+#include <uORB/topics/rover_velocity_setpoint.h>
 #include <uORB/topics/rover_attitude_setpoint.h>
 #include <uORB/topics/rover_steering_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
@@ -79,22 +79,22 @@ enum class GuidanceState {
 };
 
 /**
- * @brief Class for differential position/velocity control.
+ * @brief Class for differential position control.
  */
-class DifferentialPosVelControl : public ModuleParams
+class DifferentialPosControl : public ModuleParams
 {
 public:
 	/**
-	 * @brief Constructor for DifferentialPosVelControl.
+	 * @brief Constructor for DifferentialPosControl.
 	 * @param parent The parent ModuleParams object.
 	 */
-	DifferentialPosVelControl(ModuleParams *parent);
-	~DifferentialPosVelControl() = default;
+	DifferentialPosControl(ModuleParams *parent);
+	~DifferentialPosControl() = default;
 
 	/**
 	 * @brief Update position controller.
 	 */
-	void updatePosVelControl();
+	void updatePosControl();
 
 protected:
 	/**
@@ -109,11 +109,10 @@ private:
 	void updateSubscriptions();
 
 	/**
-	 * @brief Generate and publish roverAttitudeSetpoint from manualControlSetpoint (Position Mode) or
-	 * 	  trajcetorySetpoint (Offboard position or velocity control) or
-	 * 	  positionSetpointTriplet (Auto Mode).
+	 * @brief Generate and publish roverVelocitySetpoint from manualControlSetpoint (Position Mode) or
+	 * 	  trajcetorySetpoint (Offboard position control) or positionSetpointTriplet (Auto Mode).
 	 */
-	void generateAttitudeSetpoint();
+	void generateVelocitySetpoint();
 
 	/**
 	 * @brief Generate and publish roverThrottleSetpoint and roverAttitudeSetpoint or roverRateSetpoint from manualControlSetpoint.
@@ -124,11 +123,6 @@ private:
 	 * @brief Generate and publish roverAttitudeSetpoint from position of trajectorySetpoint.
 	 */
 	void offboardPositionMode();
-
-	/**
-	 * @brief Generate and publish roverAttitudeSetpoint from velocity of trajectorySetpoint.
-	 */
-	void offboardVelocityMode();
 
 	/**
 	 * @brief Generate and publish roverThrottleSetpoint and roverAttitudeSetpoint from positionSetpointTriplet.
@@ -174,20 +168,13 @@ private:
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _position_setpoint_triplet_sub{ORB_ID(position_setpoint_triplet)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
-	uORB::Subscription _local_position_sub{ORB_ID(vehicle_local_position)};
 	uORB::Subscription _mission_result_sub{ORB_ID(mission_result)};
 	uORB::Subscription _home_position_sub{ORB_ID(home_position)};
-	uORB::Subscription _rover_steering_setpoint_sub{ORB_ID(rover_steering_setpoint)};
 	vehicle_control_mode_s _vehicle_control_mode{};
 	offboard_control_mode_s _offboard_control_mode{};
-	rover_steering_setpoint_s _rover_steering_setpoint{};
 
 	// uORB publications
-	uORB::Publication<rover_rate_setpoint_s> _rover_rate_setpoint_pub{ORB_ID(rover_rate_setpoint)};
-	uORB::Publication<rover_throttle_setpoint_s> _rover_throttle_setpoint_pub{ORB_ID(rover_throttle_setpoint)};
-	uORB::Publication<rover_attitude_setpoint_s> _rover_attitude_setpoint_pub{ORB_ID(rover_attitude_setpoint)};
-	uORB::Publication<rover_velocity_status_s> _rover_velocity_status_pub{ORB_ID(rover_velocity_status)};
-	uORB::Publication<position_controller_status_s>	_position_controller_status_pub{ORB_ID(position_controller_status)};
+	uORB::Publication<rover_velocity_setpoint_s>    _rover_velocity_setpoint_pub{ORB_ID(rover_velocity_setpoint)};
 	uORB::Publication<pure_pursuit_status_s>	_pure_pursuit_status_pub{ORB_ID(pure_pursuit_status)};
 
 	// Variables
@@ -200,7 +187,6 @@ private:
 	float _vehicle_speed_body_y{0.f};
 	float _vehicle_yaw{0.f};
 	float _max_yaw_rate{0.f};
-	float _speed_body_x_setpoint{0.f};
 	float _dt{0.f};
 	int _nav_state{0};
 	int _curr_wp_type{position_setpoint_s::SETPOINT_TYPE_IDLE};
@@ -215,10 +201,6 @@ private:
 	float _cruising_speed{0.f};
 	float _waypoint_transition_angle{0.f}; // Angle between the prevWP-currWP and currWP-nextWP line segments [rad]
 	bool _prev_param_check_passed{true};
-
-	// Controllers
-	PID _pid_speed;
-	SlewRate<float> _speed_setpoint;
 
 	// Class Instances
 	MapProjection _global_ned_proj_ref{}; // Transform global to NED coordinates
@@ -241,6 +223,7 @@ private:
 		(ParamFloat<px4::params::PP_LOOKAHD_MAX>)   _param_pp_lookahd_max,
 		(ParamFloat<px4::params::PP_LOOKAHD_MIN>)   _param_pp_lookahd_min,
 		(ParamFloat<px4::params::RO_YAW_RATE_LIM>)  _param_ro_yaw_rate_limit,
+		(ParamFloat<px4::params::RO_YAW_P>)  	    _param_ro_yaw_p,
 		(ParamFloat<px4::params::NAV_ACC_RAD>)      _param_nav_acc_rad
 
 	)
